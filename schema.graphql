@@ -6,9 +6,10 @@
 union GetPagesUnion = Page | PageList
 
 type Mutation {
-  addPage(input: PageInput!, lid: ID!): Page!
-  createPageList(input: PageListInput!): PageList!
-  createUser(input: UserInput, uid: Float!): User!
+  addPage(lid: ID!, login: UserLoginInput!, pageIn: PageInput!): Page!
+  createAnon: User!
+  createPageList(login: UserLoginInput!, pageListIn: PageListInput!): PageList!
+  createUser(login: UserLoginInput!, nick: String!, pass: String!, userIn: UserInput!): User!
 }
 
 type Page {
@@ -42,17 +43,23 @@ input PartInput {
 }
 
 type Query {
-  getPages(lid: Float!, pids: [ID!], uid: Float!): [GetPagesUnion!]!
-  getUser(reqId: Float!, uid: Float!): User!
-  getUsers(uid: Float!): [User!]!
+  getPages(auth: UserLoginInput!, lid: ID!, pids: [ID!]): [GetPagesUnion!]!
+  getUserData(login: UserLoginInput!): User!
+  getUsers(login: UserLoginInput!): [User!]!
 }
 
 type User {
-  crtf: Float!
+  auth: String!
+  csrf: String!
   id: ID!
   rights: String!
 }
 
 input UserInput {
   rights: String!
+}
+
+input UserLoginInput {
+  auth: String
+  csrf: String
 }

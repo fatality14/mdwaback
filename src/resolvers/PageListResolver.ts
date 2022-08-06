@@ -6,7 +6,9 @@ import users from "../data/UserData"
 import ERights from "../utility/ERights";
 import { hasEnumValue, stringifyEnum, toEnumVal } from "../utility/EnumUtils";
 import errors from "../errors/CommonErr"
-import { checkIsUserAllowed } from "../utility/UserUtils";
+import { checkConcreteRights, checkRights, getUserByLogin, getUserIdByLogin } from "../utility/UserUtils";
+import { UserLoginInput } from "../types/User";
+import { type } from "os";
 
 const GetPagesUnion = createUnionType({
     name: "GetPagesUnion",
@@ -27,23 +29,28 @@ export class PageListResolver {
 
     @Query(() => [GetPagesUnion])
     async getPages(
-        @Arg("lid") lid: number,
-        @Arg("uid") uid: number,
+        @Arg("auth") login: UserLoginInput,
+        @Arg("lid", type => ID) lid: number,
         @Arg("pids", type => [ID], { nullable: true }) pids?: number[]
-    ): Promise<Array<typeof GetPagesUnion> | undefined> {
+    ): Promise<Array<typeof GetPagesUnion>> {
         const list = this.items.find(i => i.id == lid);
 
-        if(!list){
+        if (!list) {
             throw errors.noListErr;
         }
 
-        if (checkIsUserAllowed(uid, toEnumVal(list!.rights, ERights), this.items)) {
+        const client = getUserByLogin(users.items, login);
+        if (!client) {
+            throw errors.noSuchUser;
+        }
+
+        if (checkConcreteRights(client, toEnumVal(list!.rights, ERights))) {
             if (pids) {
                 const ret = list!.pages.filter(i => pids.find(j => j == i.id));
-                if(ret.length != 0){
+                if (ret.length != 0) {
                     return ret;
                 }
-                else{
+                else {
                     throw errors.noPagesErr;
                 }
             }
@@ -51,31 +58,42 @@ export class PageListResolver {
                 return [list!];
             }
         }
-        else{
+        else {
             throw errors.notAllowedErr;
         }
     }
 
     @Mutation(() => PageList)
-    async createPageList(@Arg("input") input: PageListInput): Promise<PageListInput> {
-        if(!hasEnumValue(input.rights, ERights)){
+    async createPageList(@Arg("login") login: UserLoginInput, @Arg("pageListIn") pageListIn: PageListInput): Promise<PageListInput> {
+        if (!hasEnumValue(pageListIn.rights, ERights)) {
             throw errors.noSuchRights;
         }
 
-        const pageList : PageList = {
-            id: this.items.length + 1,
-            pages: [],
-            ...input,
+        const client = getUserByLogin(users.items, login);
+        if (!client) {
+            throw errors.noSuchUser;
         }
-        
-        this.items.push(pageList)
-        return pageList
+
+        if (checkConcreteRights(client, toEnumVal(pageListIn.rights, ERights))) {
+            const pageList: PageList = {
+                id: this.items.length + 1,
+                pages: [],
+                ...pageListIn,
+            }
+
+            this.items.push(pageList)
+            return pageList
+        }
+        else {
+            throw errors.notAllowedErr;
+        }
     }
 
     @Mutation(() => Page)
     async addPage(
+        @Arg("login") login: UserLoginInput,
         @Arg("lid", type => ID) lid: number,
-        @Arg("input") input: PageInput
+        @Arg("pageIn") pageIn: PageInput
     ): Promise<Page> {
         const list = this.items.find(i => i.id == lid)
 
@@ -83,16 +101,26 @@ export class PageListResolver {
             throw errors.noListErr;
         }
 
-        const page : Page = {id: list.pages.length + 1, parts: []};
+        const client = getUserByLogin(users.items, login);
+        if (!client) {
+            throw errors.noSuchUser;
+        }
 
-        let counter = 1;
-        input.parts.forEach(i => {
-            page.parts.push({id: counter, isCode: i.isCode, data: i.data});
-            counter++;
-        }) 
+        if (checkConcreteRights(client, toEnumVal(list.rights, ERights))) {
+            const page: Page = { id: list.pages.length + 1, parts: [] };
 
-        list.pages.push(page);
+            let counter = 1;
+            pageIn.parts.forEach(i => {
+                page.parts.push({ id: counter, isCode: i.isCode, data: i.data });
+                counter++;
+            })
 
-        return list.pages.find(i => i.id == list.pages.length)!
-    } 
+            list.pages.push(page);
+
+            return list.pages.find(i => i.id == list.pages.length)!
+        }
+        else{
+            throw errors.notAllowedErr
+        }
+    }
 }

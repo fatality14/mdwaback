@@ -1,19 +1,24 @@
 import { ObjectType, Field, InputType, Resolver, Query, Arg, Mutation, ID } from "type-graphql"
-import { User, UserInput } from "../types/User"
+import { User, UserLoginInput, UserInput } from "../types/User"
 import userList from "../data/UserData"
-import { checkIsUserAllowed as checkIsUserHasRights } from "../utility/UserUtils";
+import { authentificateUser, checkRights, checkConcreteRights, getUserByLogin, authentificateConcreteUser } from "../utility/UserUtils";
 import ERights from "../utility/ERights";
 import errors from "../errors/CommonErr";
-import { enumToStrArr, toEnumVal } from "../utility/EnumUtils";
+import { enumToStrArr, hasEnumValue, toEnumVal } from "../utility/EnumUtils";
 
 @Resolver(() => User)
 export class UsersResolver {
-    private items: User[] = userList.items;
+    private users: User[] = userList.items;
 
     @Query(() => [User])
-    async getUsers(@Arg("uid") uid: number): Promise<User[]> {
-        if (checkIsUserHasRights(uid, ERights.ADMIN, this.items)) {
-            return this.items
+    async getUsers(@Arg("login") login: UserLoginInput): Promise<User[]> {
+        const client = getUserByLogin(this.users, login);
+        if (!client) {
+            throw errors.noSuchUser;
+        }
+
+        if (checkConcreteRights(client, ERights.ADMIN)) {
+            return this.users
         }
         else {
             throw errors.notAllowedErr;
@@ -21,43 +26,85 @@ export class UsersResolver {
     }
 
     @Query(() => User)
-    async getUser(@Arg("uid") uid: number, @Arg("reqId") reqId: number): Promise<User | undefined> {
-        if (uid == reqId || checkIsUserHasRights(uid, ERights.ADMIN, this.items)) {
-            const user = this.items.find(u => u.id === reqId)
-            return user
+    async getUserData(@Arg("login") login: UserLoginInput): Promise<User | undefined> {
+        const client = getUserByLogin(this.users, login);
+        if (!client) {
+            throw errors.noSuchUser;
         }
-        else {
-            throw errors.notAllowedErr;
+
+        return client;
+    }
+
+    @Mutation(() => User)
+    async createAnon(): Promise<User> {
+        const user: User = {
+            id: this.users.length + 1,
+            rights: ERights.ANON,
+            csrf: '',
+            auth: ''
         }
+
+        user.auth = 'auth' + user.id; //TODO replace later
+        this.users.push(user)
+
+        authentificateConcreteUser(user, user.auth)
+
+        return user
     }
 
     @Mutation(() => User)
     async createUser(
-        @Arg("uid") uid: number,
-        @Arg("input", { nullable: true }) input?: UserInput
+        @Arg("login") login: UserLoginInput,
+        @Arg("nick") nick: string,
+        @Arg("pass") pass: string,
+        @Arg("userIn") userIn: UserInput
     ): Promise<User> {
-        const user : User = {
-            id: this.items.length + 1,
-            rights: 'ANON',
-            crtf: 111
+        if (!hasEnumValue(userIn.rights, ERights)) {
+            throw errors.noSuchRights
         }
 
-        if (input) {
-            if (
-                checkIsUserHasRights(uid, ERights.REGISTERED, this.items) ||
-                checkIsUserHasRights(uid, ERights.ANON, this.items)
-            ) {
-                if (toEnumVal(input.rights, ERights) == ERights.ADMIN) {
-                    throw errors.notAllowedErr;
-                }
-            }
-            else{
-                user.rights = input.rights;
-            }
+        const client = getUserByLogin(this.users, login);
+        if (!client) {
+            throw errors.noSuchUser;
         }
 
-        this.items.push(user)
-        return user
+        const authToken = nick + ' ' + pass;
+
+        if(this.users.find(i => i.auth.split(" ")[0] == nick)){
+            throw errors.alreadyExists;
+        }
+
+        if (checkConcreteRights(client, ERights.ANON)) {
+            if (userIn.rights == ERights.ADMIN ||
+                userIn.rights == ERights.ANON) {
+                throw errors.notAllowedErr;
+            }
+
+            client.auth = authToken;
+            client.rights = userIn.rights;
+            return client
+        }
+
+        let newUser: User = {
+            id: this.users.length + 1,
+            rights: ERights.REGISTERED,
+            csrf: '',
+            auth: authToken
+        }
+
+        if (checkConcreteRights(client, ERights.REGISTERED)) {
+            if (userIn.rights == ERights.ADMIN) {
+                throw errors.notAllowedErr;
+            }
+        }
+        else{
+            client.rights = userIn.rights;
+        }
+
+        authentificateConcreteUser(newUser, newUser.auth);
+        this.users.push(newUser);
+
+        return newUser
     }
 
     // @Mutation(() => User)

@@ -1,5 +1,5 @@
 import { ObjectType, Field, ID, InputType } from "type-graphql"
-import { IRightsAssignable } from "./IRightAssignable"
+import { IRightsAssignable } from "./IRightsAssignable"
 import { Page } from "./Page"
 
 @ObjectType()
@@ -9,7 +9,7 @@ export class PageList extends IRightsAssignable{
     @Field(type => [Page])
     pages!: Page[]
     @Field()
-    rights!: string
+    rights!: string //TODO must be array type
 }
 
 @InputType()
