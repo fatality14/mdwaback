@@ -5,7 +5,7 @@ export class Part {
     @Field(() => ID)
     id!: number
     @Field()
-    isCode!: boolean
+    type!: number
     @Field(type => String)
     data!: string
 }
@@ -13,7 +13,7 @@ export class Part {
 @InputType()
 export class PartInput {
     @Field()
-    isCode!: boolean
+    type!: number
     @Field(type => String)
     data!: string
 }

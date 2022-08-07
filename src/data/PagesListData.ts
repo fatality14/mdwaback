@@ -6,10 +6,11 @@ let items: PageList[] = [
         pages: [
             {
                 id: 1,
-                parts: [{ id: 1, isCode: false, data: "test" }]
+                parts: [{ id: 1, type: 0, data: "test" }]
             }
         ],
-        rights: 'ADMIN'
+        rights: 'ADMIN',
+        usersAllowed: ["hardauth"]
     }
 ]
 

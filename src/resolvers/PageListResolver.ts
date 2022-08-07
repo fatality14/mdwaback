@@ -44,6 +44,23 @@ export class PageListResolver {
             throw errors.noSuchUser;
         }
 
+        if(!(list.usersAllowed.length == 0)){
+            let flag = false;
+            let nick = client.auth.split(" ")[0];
+
+            for (const i in list.usersAllowed){
+                if (nick == list.usersAllowed[i]) {
+                    flag = true;
+                    break;
+                }
+            }
+
+            if(!flag){
+                throw errors.notAllowedErr
+            }
+        }
+
+
         if (checkConcreteRights(client, toEnumVal(list!.rights, ERights))) {
             if (pids) {
                 const ret = list!.pages.filter(i => pids.find(j => j == i.id));
@@ -72,6 +89,21 @@ export class PageListResolver {
         const client = getUserByLogin(users.items, login);
         if (!client) {
             throw errors.noSuchUser;
+        }
+
+        pageListIn.usersAllowed.forEach(
+            i => {
+                if (!users.items.find(j => j.auth.split(" ")[0] == i)) {
+                    throw errors.noSuchUser
+                }
+            }
+        )
+
+        const nick = client.auth.split(" ")[0];
+        if(!pageListIn.usersAllowed.find(i => i == nick)){
+            if(pageListIn.usersAllowed.length != 0){
+                pageListIn.usersAllowed.push(nick)
+            }
         }
 
         if (checkConcreteRights(client, toEnumVal(pageListIn.rights, ERights))) {
@@ -111,7 +143,7 @@ export class PageListResolver {
 
             let counter = 1;
             pageIn.parts.forEach(i => {
-                page.parts.push({ id: counter, isCode: i.isCode, data: i.data });
+                page.parts.push({ id: counter, type: i.type, data: i.data });
                 counter++;
             })
 
@@ -119,7 +151,7 @@ export class PageListResolver {
 
             return list.pages.find(i => i.id == list.pages.length)!
         }
-        else{
+        else {
             throw errors.notAllowedErr
         }
     }

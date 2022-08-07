@@ -1,4 +1,3 @@
-import { IRightsAssignable } from "../types/IRightsAssignable";
 import { Page } from "../types/Page";
 import { User, UserLoginInput as UserLoginInput } from "../types/User";
 import ERights from "./ERights";
@@ -90,11 +89,11 @@ export function getUserByLogin(arr: User[], login: UserLoginInput): User | undef
     }
 }
 
-export function checkRights(uid: number, rights: ERights, arr: IRightsAssignable[]): boolean {
+export function checkRights(uid: number, rights: ERights, arr: User[]): boolean {
     return arr.find(i => i.id == uid)?.rights == rights.toString();
 }
 
-export function checkConcreteRights(user: IRightsAssignable, rights: ERights): boolean {
+export function checkConcreteRights(user: User, rights: ERights): boolean {
     return user.rights == rights.toString();
 }
 

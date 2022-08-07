@@ -25,21 +25,23 @@ type PageList {
   id: ID!
   pages: [Page!]!
   rights: String!
+  usersAllowed: [String!]!
 }
 
 input PageListInput {
   rights: String!
+  usersAllowed: [String!]!
 }
 
 type Part {
   data: String!
   id: ID!
-  isCode: Boolean!
+  type: Float!
 }
 
 input PartInput {
   data: String!
-  isCode: Boolean!
+  type: Float!
 }
 
 type Query {

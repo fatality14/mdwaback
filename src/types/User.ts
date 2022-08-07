@@ -1,8 +1,7 @@
 import { ObjectType, Field, ID, InputType } from "type-graphql"
-import { IRightsAssignable } from "./IRightsAssignable"
 
 @ObjectType()
-export class User extends IRightsAssignable{
+export class User{
     @Field(() => ID)
     id!: number
     @Field()
