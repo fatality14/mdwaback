@@ -1,3 +1,6 @@
+//TODO move to types/User.ts
+
+
 import { Page } from "../types/Page";
 import { User, UserLoginInput as UserLoginInput } from "../types/User";
 import ERights from "./ERights";
@@ -6,7 +9,7 @@ function genCSRF(seed: string): string{
     return seed; //TODO replace later
 }
 
-export function authentificateUser(arr: User[], auth?: string): number {
+export function genUserCSRF(arr: User[], auth?: string): number {
     //TODO forbid last user csrf
     //TODO make multiple device csrf
 
@@ -21,7 +24,7 @@ export function authentificateUser(arr: User[], auth?: string): number {
     return -1;
 }
 
-export function authentificateConcreteUser(user: User, auth?: string): number {
+export function genConcreteUserCSRF(user: User, auth?: string): number {
     //TODO forbid last user csrf
     //TODO make multiple device csrf
 
@@ -69,7 +72,7 @@ export function getUserIdByLogin(arr: User[], login: UserLoginInput): number {
         return id;
     }
 
-    id = authentificateUser(arr, login.auth);
+    id = genUserCSRF(arr, login.auth);
     if (id != -1) {
         return id;
     }

@@ -7,7 +7,7 @@ import ERights from "../utility/ERights";
 import { hasEnumValue, stringifyEnum, toEnumVal } from "../utility/EnumUtils";
 import errors from "../errors/CommonErr"
 import { checkConcreteRights, checkRights, getUserByLogin, getUserIdByLogin } from "../utility/UserUtils";
-import { UserLoginInput } from "../types/User";
+import { User, UserLoginInput } from "../types/User";
 import { type } from "os";
 
 const GetPagesUnion = createUnionType({
@@ -27,6 +27,32 @@ const GetPagesUnion = createUnionType({
 export class PageListResolver {
     private items = pageLists.items;
 
+    checkListUserRights(list: PageList | PageListInput, client: User) : boolean{
+        let hasRights = false;
+        
+        const listRights = toEnumVal(list!.rights, ERights);
+
+        //admin can access admin rights list
+        if (listRights == ERights.ADMIN) {
+            if (checkConcreteRights(client, ERights.ADMIN)) {
+                hasRights = true;
+            }
+        }
+        //registered and admin user can access registered rights list
+        else if (listRights == ERights.REGISTERED) {
+            if (checkConcreteRights(client, ERights.REGISTERED) ||
+                checkConcreteRights(client, ERights.ADMIN)) {
+                hasRights = true;
+            }
+        }
+        //everyone can access anon rights list
+        else {
+            hasRights = true;
+        }
+
+        return hasRights;
+    }
+
     @Query(() => [GetPagesUnion])
     async getPages(
         @Arg("auth") login: UserLoginInput,
@@ -35,33 +61,41 @@ export class PageListResolver {
     ): Promise<Array<typeof GetPagesUnion>> {
         const list = this.items.find(i => i.id == lid);
 
+        //if there's no such list
         if (!list) {
             throw errors.noListErr;
         }
 
+        //get client
         const client = getUserByLogin(users.items, login);
         if (!client) {
             throw errors.noSuchUser;
         }
 
-        if(!(list.usersAllowed.length == 0)){
+        //if list not public
+        if (!(list.usersAllowed.length == 0)) {
             let flag = false;
             let nick = client.auth.split(" ")[0];
 
-            for (const i in list.usersAllowed){
+            //allow if there is client in list
+            for (const i in list.usersAllowed) {
                 if (nick == list.usersAllowed[i]) {
                     flag = true;
                     break;
                 }
             }
 
-            if(!flag){
+            //else forbid access
+            if (!flag) {
                 throw errors.notAllowedErr
             }
         }
 
+        const hasRights = this.checkListUserRights(list, client);
 
-        if (checkConcreteRights(client, toEnumVal(list!.rights, ERights))) {
+        //if client has rights to access list
+        if (hasRights) {
+            //if page ids specified return pages if any
             if (pids) {
                 const ret = list!.pages.filter(i => pids.find(j => j == i.id));
                 if (ret.length != 0) {
@@ -71,6 +105,7 @@ export class PageListResolver {
                     throw errors.noPagesErr;
                 }
             }
+            //else return just a whole list
             else {
                 return [list!];
             }
@@ -82,15 +117,18 @@ export class PageListResolver {
 
     @Mutation(() => PageList)
     async createPageList(@Arg("login") login: UserLoginInput, @Arg("pageListIn") pageListIn: PageListInput): Promise<PageListInput> {
+        //if there is such rights exists
         if (!hasEnumValue(pageListIn.rights, ERights)) {
             throw errors.noSuchRights;
         }
 
+        //get client
         const client = getUserByLogin(users.items, login);
         if (!client) {
             throw errors.noSuchUser;
         }
 
+        //throw if there is no clients to gain access to
         pageListIn.usersAllowed.forEach(
             i => {
                 if (!users.items.find(j => j.auth.split(" ")[0] == i)) {
@@ -100,12 +138,19 @@ export class PageListResolver {
         )
 
         const nick = client.auth.split(" ")[0];
-        if(!pageListIn.usersAllowed.find(i => i == nick)){
-            if(pageListIn.usersAllowed.length != 0){
+
+        //if there is no client in the list specified
+        if (!pageListIn.usersAllowed.find(i => i == nick)) {
+            //if list is not public
+            if (pageListIn.usersAllowed.length != 0) {
+                //gain access to client only
                 pageListIn.usersAllowed.push(nick)
             }
         }
 
+        const hasRights = this.checkListUserRights(pageListIn, client);
+
+        //if user has rights to create such a list, then create list
         if (checkConcreteRights(client, toEnumVal(pageListIn.rights, ERights))) {
             const pageList: PageList = {
                 id: this.items.length + 1,
@@ -129,24 +174,31 @@ export class PageListResolver {
     ): Promise<Page> {
         const list = this.items.find(i => i.id == lid)
 
+        //if there's such a list
         if (!list) {
             throw errors.noListErr;
         }
 
+        //get client
         const client = getUserByLogin(users.items, login);
         if (!client) {
             throw errors.noSuchUser;
         }
 
-        if (checkConcreteRights(client, toEnumVal(list.rights, ERights))) {
+        const hasRights = this.checkListUserRights(list, client);
+
+        //if user has rights to change such a list
+        if (hasRights) {
             const page: Page = { id: list.pages.length + 1, parts: [] };
 
+            //fill page with parts data
             let counter = 1;
             pageIn.parts.forEach(i => {
                 page.parts.push({ id: counter, type: i.type, data: i.data });
                 counter++;
             })
 
+            //push page
             list.pages.push(page);
 
             return list.pages.find(i => i.id == list.pages.length)!
