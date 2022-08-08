@@ -1,19 +1,27 @@
 import { ObjectType, Field, ID, InputType } from "type-graphql"
+import HasId from "./interfaces/HasId"
+import EPagePartType from "../enums/EPagePartType"
 
 @ObjectType()
-export class Part {
+export class PartData{
+    @Field(() => EPagePartType)
+    type!: EPagePartType
+    @Field(type => String)
+    content!: string
+}
+
+@ObjectType()
+export class Part implements HasId {
     @Field(() => ID)
     id!: number
-    @Field()
-    type!: number
-    @Field(type => String)
-    data!: string
+    @Field(type => PartData)
+    data!: PartData
 }
 
 @InputType()
 export class PartInput {
-    @Field()
-    type!: number
+    @Field(() => EPagePartType)
+    type!: EPagePartType
     @Field(type => String)
-    data!: string
+    content!: string
 }

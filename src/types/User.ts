@@ -1,27 +1,40 @@
 import { ObjectType, Field, ID, InputType } from "type-graphql"
+import ERights from "../enums/ERights"
+import HasId from "./interfaces/HasId"
+import HasRights from "./interfaces/HasRights"
 
 @ObjectType()
-export class User{
-    @Field(() => ID)
-    id!: number
+export class UserData implements HasRights{
+    @Field(() => ERights)
+    rights!: ERights
     @Field()
     csrf!: string
     @Field()
-    auth!: string
+    login!: string
     @Field()
-    rights!: string
+    password!: string
+}
+
+@ObjectType()
+export class User implements HasId{
+    @Field(() => ID)
+    id!: number
+    @Field(() => UserData)
+    data!: UserData
 }
 
 @InputType()
-export class UserLoginInput {
+export class UserAuthInput {
     @Field({nullable: true})
     csrf?: string
     @Field({nullable: true})
-    auth!: string
+    login!: string
+    @Field({nullable: true})
+    password!: string
 }
 
 @InputType()
-export class UserInput {
-    @Field()
-    rights!: string
+export class UserRightsInput implements HasRights{
+    @Field(() => ERights)
+    rights!: ERights
 }

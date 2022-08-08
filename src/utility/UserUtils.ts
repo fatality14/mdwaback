@@ -2,101 +2,51 @@
 
 
 import { Page } from "../types/Page";
-import { User, UserLoginInput as UserLoginInput } from "../types/User";
-import ERights from "./ERights";
+import { User, UserAuthInput } from "../types/User";
+import CSRFUtils from "./CSRFUtills";
+import ERights from "../enums/ERights";
 
-function genCSRF(seed: string): string{
-    return seed; //TODO replace later
-}
+export default class UserUtils {
+    static genCSRF(user: User): number {
+        //TODO forbid last user csrf
+        //TODO make multiple device csrf
 
-export function genUserCSRF(arr: User[], auth?: string): number {
-    //TODO forbid last user csrf
-    //TODO make multiple device csrf
-
-    if (auth) {
-        let user = arr.find(i => i.auth == auth);
-
-        if (user) {
-            user.csrf = genCSRF('csrf' + user.id); 
-            return user.id;
-        }
-    }
-    return -1;
-}
-
-export function genConcreteUserCSRF(user: User, auth?: string): number {
-    //TODO forbid last user csrf
-    //TODO make multiple device csrf
-
-    if (auth) {
-        user.csrf = genCSRF('csrf' + user.id);
+        user.data.csrf = CSRFUtils.genCSRF(user.id.toString());
         return user.id;
     }
-    return -1;
-}
 
-export function getUserByAuth(arr: User[], auth?: string): User | undefined {
-    if (auth) {
-        let user = arr.find(i => i.auth == auth);
+    static getByLogin(arr: User[], login: string): User | undefined {
+        let user = arr.find(i => i.data.login == login);
 
         if (user) {
             return user;
         }
     }
-}
 
-export function getUserIdByCSRF(arr: User[], csrf?: string): number {
-    if (csrf) {
-        let user = arr.find(i => i.csrf == csrf);
-
-        if (user) {
-            return user.id;
-        }
-    }
-    return -1;
-}
-
-export function getUserByCSRF(arr: User[], csrf?: string): User | undefined {
-    if (csrf) {
-        let user = arr.find(i => i.csrf == csrf);
+    static getByCSRF(arr: User[], csrf: string): User | undefined {
+        let user = arr.find(i => i.data.csrf == csrf);
 
         if (user) {
             return user;
         }
     }
-}
 
-export function getUserIdByLogin(arr: User[], login: UserLoginInput): number {
-    let id = getUserIdByCSRF(arr, login.csrf);
-    if (id != -1) {
-        return id;
+    static getByAuth(arr: User[], auth: UserAuthInput): User | undefined {
+        if (auth.csrf) {
+            let user = this.getByCSRF(arr, auth.csrf);
+            if (user) {
+                return user;
+            }
+        }
+
+        let usersWithPass = arr.filter(i => i.data.password == auth.password);
+        let userWithLogin = this.getByLogin(arr, auth.login);
+        if (userWithLogin) {
+            return usersWithPass.find(i => i.data.password == userWithLogin?.data.password);;
+        }
     }
 
-    id = genUserCSRF(arr, login.auth);
-    if (id != -1) {
-        return id;
-    }
-
-    return -1;
-}
-
-export function getUserByLogin(arr: User[], login: UserLoginInput): User | undefined {
-    let user = getUserByCSRF(arr, login.csrf);
-    if (user) {
-        return user;
-    }
-
-    user = getUserByAuth(arr, login.auth);
-    if (user) {
-        return user;
+    static checkRights(user: User, rights: ERights): boolean {
+        return user.data.rights == rights.toString();
     }
 }
-
-export function checkRights(uid: number, rights: ERights, arr: User[]): boolean {
-    return arr.find(i => i.id == uid)?.rights == rights.toString();
-}
-
-export function checkConcreteRights(user: User, rights: ERights): boolean {
-    return user.rights == rights.toString();
-}
-

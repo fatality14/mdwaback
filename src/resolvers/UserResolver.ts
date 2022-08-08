@@ -1,25 +1,25 @@
 import { ObjectType, Field, InputType, Resolver, Query, Arg, Mutation, ID } from "type-graphql"
-import { User, UserLoginInput, UserInput } from "../types/User"
+import { User, UserAuthInput, UserData, UserRightsInput } from "../types/User"
 import userList from "../data/UserData"
-import { genUserCSRF, checkRights, checkConcreteRights, getUserByLogin, genConcreteUserCSRF } from "../utility/UserUtils";
-import ERights from "../utility/ERights";
+import UserUtils from "../utility/UserUtils";
+import ERights from "../enums/ERights";
 import errors from "../errors/CommonErr";
-import { enumToStrArr, hasEnumValue, toEnumVal } from "../utility/EnumUtils";
+import EnumUtils from "../utility/EnumUtils";
 
 @Resolver(() => User)
 export class UsersResolver {
     private users: User[] = userList.items;
 
     @Query(() => [User])
-    async getUsers(@Arg("login") login: UserLoginInput): Promise<User[]> {
+    async getUsers(@Arg("auth") auth: UserAuthInput): Promise<User[]> {
         //get client
-        const client = getUserByLogin(this.users, login);
+        const client = UserUtils.getByAuth(this.users, auth);
         if (!client) {
             throw errors.noSuchUser;
         }
 
         //only admin can take users
-        if (checkConcreteRights(client, ERights.ADMIN)) {
+        if (UserUtils.checkRights(client, ERights.ADMIN)) {
             return this.users
         }
         else {
@@ -28,9 +28,9 @@ export class UsersResolver {
     }
 
     @Query(() => User)
-    async getUserData(@Arg("login") login: UserLoginInput): Promise<User | undefined> {
+    async getUserData(@Arg("auth") auth: UserAuthInput): Promise<User | undefined> {
         //get client
-        const client = getUserByLogin(this.users, login);
+        const client = UserUtils.getByAuth(this.users, auth);
         if (!client) {
             throw errors.noSuchUser;
         }
@@ -42,86 +42,91 @@ export class UsersResolver {
     @Mutation(() => User)
     async createAnon(): Promise<User> {
         //new anon user
-        const user: User = {
-            id: this.users.length + 1,
-            rights: ERights.ANON,
-            csrf: '',
-            auth: ''
-        }
+        let user: User = new User;
+        user.id = this.users.length + 1;
+
+        user.data = new UserData;
 
         //set auth with a random token
-        user.auth = 'auth' + user.id; //TODO replace later
+        user.data.login = 'login' + user.id; //TODO replace later
+        user.data.password = 'pass' + user.id; //TODO replace later
+        user.data.rights = ERights.ANON;
+
         this.users.push(user)
 
         //gen anon csrf
-        genConcreteUserCSRF(user, user.auth)
+        UserUtils.genCSRF(user);
 
         return user
     }
 
     @Mutation(() => User)
     async createUser(
-        @Arg("login") login: UserLoginInput,
-        @Arg("nick") nick: string,
-        @Arg("pass") pass: string,
-        @Arg("userIn") userIn: UserInput
+        @Arg("auth") auth: UserAuthInput,
+        @Arg("login") login: string,
+        @Arg("password") password: string,
+        @Arg("userIn") userIn: UserRightsInput
     ): Promise<User> {
         //check if there such user rights exists
-        if (!hasEnumValue(userIn.rights, ERights)) {
+        if (!EnumUtils.hasEnumValue(userIn.rights, ERights)) {
             throw errors.noSuchRights
         }
 
         //get client
-        const client = getUserByLogin(this.users, login);
+        const client = UserUtils.getByAuth(this.users, auth);
         if (!client) {
             throw errors.noSuchUser;
         }
 
-        //auth token is nick + pass
-        const authToken = nick + ' ' + pass;
-
         //find out if already exists
-        if(this.users.find(i => i.auth.split(" ")[0] == nick)){
+        if (this.users.find(i => i.data.login == login)) {
             throw errors.alreadyExists;
         }
 
         //change existing user if anon is trying to register
-        if (checkConcreteRights(client, ERights.ANON)) {
+        if (UserUtils.checkRights(client, ERights.ANON)) {
             if (userIn.rights == ERights.ADMIN ||
                 userIn.rights == ERights.ANON) {
                 throw errors.notAllowedErr;
             }
 
-            client.auth = authToken;
-            client.rights = userIn.rights;
+            client.data.login = login;
+            client.data.password = password;
+            client.data.rights = userIn.rights;
             return client
         }
 
         //if admin, or registered user is trying to reg a new account
-        let newUser: User = {
-            id: this.users.length + 1,
-            rights: ERights.REGISTERED,
-            csrf: '',
-            auth: authToken
-        }
+        let newUser: User = new User;
 
-        //registered users cannot make admin account
-        if (checkConcreteRights(client, ERights.REGISTERED)) {
-            if (userIn.rights == ERights.ADMIN) {
+        newUser.id = this.users.length + 1;
+        newUser.data = new UserData;
+
+        newUser.data.rights = ERights.REGISTERED;
+        newUser.data.password = password;
+        newUser.data.login = login;
+        newUser.data.rights = userIn.rights;
+
+        //registered users cannot make admin/anon account
+        if (UserUtils.checkRights(client, ERights.REGISTERED)) {
+            if (userIn.rights == ERights.ADMIN ||
+                userIn.rights == ERights.ANON) {
                 throw errors.notAllowedErr;
             }
         }
         //while admin can
-        else{
-            client.rights = userIn.rights;
+        else {
+            client.data.rights = userIn.rights;
         }
 
         //gen new user csrf and add to base
-        genConcreteUserCSRF(newUser, newUser.auth);
+        UserUtils.genCSRF(newUser);
         this.users.push(newUser);
 
         return newUser
     }
+
+    //TODO change/delete requests here
 
     // @Mutation(() => User)
     // async updateUser(

@@ -3,65 +3,96 @@
 # !!!   DO NOT MODIFY THIS FILE BY YOURSELF   !!!
 # -----------------------------------------------
 
+enum EPagePartType {
+  CODE
+  MD
+}
+
+enum ERights {
+  ADMIN
+  ANON
+  REGISTERED
+}
+
 union GetPagesUnion = Page | PageList
 
 type Mutation {
-  addPage(lid: ID!, login: UserLoginInput!, pageIn: PageInput!): Page!
+  addPage(auth: UserAuthInput!, lid: ID!, pageIn: PageInput!): Page!
   createAnon: User!
-  createPageList(login: UserLoginInput!, pageListIn: PageListInput!): PageList!
-  createUser(login: UserLoginInput!, nick: String!, pass: String!, userIn: UserInput!): User!
+  createPageList(auth: UserAuthInput!, pageListIn: PageListInput!): PageList!
+  createUser(auth: UserAuthInput!, login: String!, password: String!, userIn: UserRightsInput!): User!
 }
 
 type Page {
+  data: PageData!
   id: ID!
+}
+
+type PageData {
+  name: String!
   parts: [Part!]!
 }
 
 input PageInput {
+  name: String!
   parts: [PartInput!]!
 }
 
 type PageList {
+  data: PageListData!
   id: ID!
+}
+
+type PageListData {
   pages: [Page!]!
-  rights: String!
+  rights: ERights!
   usersAllowed: [String!]!
 }
 
 input PageListInput {
-  rights: String!
+  rights: ERights!
   usersAllowed: [String!]!
 }
 
 type Part {
-  data: String!
+  data: PartData!
   id: ID!
-  type: Float!
+}
+
+type PartData {
+  content: String!
+  type: EPagePartType!
 }
 
 input PartInput {
-  data: String!
-  type: Float!
+  content: String!
+  type: EPagePartType!
 }
 
 type Query {
-  getPages(auth: UserLoginInput!, lid: ID!, pids: [ID!]): [GetPagesUnion!]!
-  getUserData(login: UserLoginInput!): User!
-  getUsers(login: UserLoginInput!): [User!]!
+  getPages(auth: UserAuthInput!, lid: ID!, pids: [ID!]): [GetPagesUnion!]!
+  getUserData(auth: UserAuthInput!): User!
+  getUsers(auth: UserAuthInput!): [User!]!
 }
 
 type User {
-  auth: String!
-  csrf: String!
+  data: UserData!
   id: ID!
-  rights: String!
 }
 
-input UserInput {
-  rights: String!
-}
-
-input UserLoginInput {
-  auth: String
+input UserAuthInput {
   csrf: String
+  login: String
+  password: String
+}
+
+type UserData {
+  csrf: String!
+  login: String!
+  password: String!
+  rights: ERights!
+}
+
+input UserRightsInput {
+  rights: ERights!
 }

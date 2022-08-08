@@ -1,15 +1,17 @@
-export function toEnumVal(value : string, e : any){
-    return e[value as keyof typeof e]
-}
+export default class EnumUtils {
+    static toEnumVal(value: string, e: any) {
+        return e[value as keyof typeof e]
+    }
 
-export function hasEnumValue(value: string, e: any){
-    return e[toEnumVal(value, e)] ? true : false;
-}
+    static hasEnumValue(value: string, e: any) {
+        return e[this.toEnumVal(value, e)] ? true : false;
+    }
 
-export function enumToStrArr(e: any){
-    return Object.keys(e);
-}
+    static enumToStrArr(e: any) {
+        return Object.keys(e);
+    }
 
-export function stringifyEnum(e: any, separator: string){
-    return enumToStrArr(e).join(separator);
+    static stringifyEnum(e: any, separator: string) {
+        return this.enumToStrArr(e).join(separator);
+    }
 }
