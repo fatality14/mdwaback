@@ -1,4 +1,4 @@
-//TODO move to types/User.ts
+//TODO? move to types/User.ts
 
 
 import { Page } from "../types/Page";
@@ -39,10 +39,12 @@ export default class UserUtils {
             }
         }
 
-        let usersWithPass = arr.filter(i => i.data.password == auth.password);
-        let userWithLogin = this.getByLogin(arr, auth.login);
-        if (userWithLogin) {
-            return usersWithPass.find(i => i.data.password == userWithLogin?.data.password);;
+        if (auth.login) {
+            let usersWithPass = arr.filter(i => i.data.password == auth.password);
+            let userWithLogin = this.getByLogin(arr, auth.login);
+            if (userWithLogin) {
+                return usersWithPass.find(i => i.data.password == userWithLogin?.data.password);;
+            }
         }
     }
 

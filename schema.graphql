@@ -21,6 +21,9 @@ type Mutation {
   createAnon: User!
   createPageList(auth: UserAuthInput!, pageListIn: PageListInput!): PageList!
   createUser(auth: UserAuthInput!, login: String!, password: String!, userIn: UserRightsInput!): User!
+  insertPagePart(auth: UserAuthInput!, lid: ID!, part: PartInput!, pid: ID!): Part!
+  updatePagePart(auth: UserAuthInput!, lid: ID!, part: PartChangeInput!, pid: ID!): Part!
+  updateUser(auth: UserAuthInput!, data: UserChangeInput!): User!
 }
 
 type Page {
@@ -35,7 +38,7 @@ type PageData {
 
 input PageInput {
   name: String!
-  parts: [PartInput!]!
+  parts: [PartDataInput!]!
 }
 
 type PageList {
@@ -59,14 +62,25 @@ type Part {
   id: ID!
 }
 
+input PartChangeInput {
+  data: PartDataInput!
+  id: ID!
+  swapid: ID
+}
+
 type PartData {
   content: String!
   type: EPagePartType!
 }
 
-input PartInput {
+input PartDataInput {
   content: String!
   type: EPagePartType!
+}
+
+input PartInput {
+  data: PartDataInput!
+  id: ID!
 }
 
 type Query {
@@ -84,6 +98,12 @@ input UserAuthInput {
   csrf: String
   login: String
   password: String
+}
+
+input UserChangeInput {
+  login: String
+  password: String
+  rights: ERights
 }
 
 type UserData {

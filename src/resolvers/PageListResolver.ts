@@ -9,7 +9,7 @@ import errors from "../errors/CommonErr"
 import UserUtils from "../utility/UserUtils";
 import { User, UserAuthInput } from "../types/User";
 import { type } from "os";
-import { Part, PartData } from "../types/Part";
+import { Part, PartChangeInput, PartData, PartDataInput, PartInput } from "../types/Part";
 
 const GetPagesUnion = createUnionType({
     name: "GetPagesUnion",
@@ -54,23 +54,18 @@ export class PageListResolver {
         return hasRights;
     }
 
-    @Query(() => [GetPagesUnion])
-    async getPages(
-        @Arg("auth") auth: UserAuthInput,
-        @Arg("lid", type => ID) lid: number,
-        @Arg("pids", type => [ID], { nullable: true }) pids?: number[]
-    ): Promise<Array<typeof GetPagesUnion>> {
+    tryGetListClient(lid: number, auth: UserAuthInput) : [Error | undefined, {list: PageList, client: User} | undefined]{
         const list = this.items.find(i => i.id == lid);
 
         //if there's no such list
         if (!list) {
-            throw errors.noListErr;
+            return [errors.noListErr, undefined];
         }
 
         //get client
         const client = UserUtils.getByAuth(users.items, auth);
         if (!client) {
-            throw errors.noSuchUser;
+            return [errors.noSuchUser, undefined];
         }
 
         //if list not public
@@ -88,9 +83,27 @@ export class PageListResolver {
 
             //else forbid access
             if (!flag) {
-                throw errors.notAllowedErr
+                return [errors.notAllowedErr, undefined]
             }
         }
+
+        return [undefined, {list, client}];
+    }
+
+    @Query(() => [GetPagesUnion])
+    async getPages(
+        @Arg("auth") auth: UserAuthInput,
+        @Arg("lid", type => ID) lid: number,
+        @Arg("pids", type => [ID], { nullable: true }) pids?: number[]
+    ): Promise<Array<typeof GetPagesUnion>> {
+        let list: PageList, client: User;
+
+        const [err, r] = this.tryGetListClient(lid, auth);
+        if(err){
+            throw err;
+        }
+
+        ({list, client} = r!);
 
         const hasRights = this.checkListUserRights(list.data, client);
 
@@ -121,11 +134,6 @@ export class PageListResolver {
         @Arg("auth") auth: UserAuthInput,
         @Arg("pageListIn") pageListIn: PageListInput
     ): Promise<PageList> {
-        //if there is such rights exists
-        if (!EnumUtils.hasEnumValue(pageListIn.rights, ERights)) {
-            throw errors.noSuchRights;
-        }
-
         //get client
         const client = UserUtils.getByAuth(users.items, auth);
         if (!client) {
@@ -180,18 +188,14 @@ export class PageListResolver {
         @Arg("lid", () => ID) lid: number,
         @Arg("pageIn") pageIn: PageInput
     ): Promise<Page> {
-        const list = this.items.find(i => i.id == lid)
+        let list: PageList, client: User;
 
-        //if there's such a list
-        if (!list) {
-            throw errors.noListErr;
+        const [err, r] = this.tryGetListClient(lid, auth);
+        if(err){
+            throw err;
         }
 
-        //get client
-        const client = UserUtils.getByAuth(users.items, auth);
-        if (!client) {
-            throw errors.noSuchUser;
-        }
+        ({list, client} = r!);
 
         const hasRights = this.checkListUserRights(list.data, client);
 
@@ -225,6 +229,111 @@ export class PageListResolver {
         }
         else {
             throw errors.notAllowedErr
+        }
+    }
+
+    @Mutation(() => Part)
+    async updatePagePart(
+        @Arg("auth") auth: UserAuthInput,
+        @Arg("lid", () => ID) lid: number,
+        @Arg("pid", () => ID) pid: number,
+        @Arg("part", () => PartChangeInput) changePart: PartChangeInput
+    ): Promise<Part> {
+        let list: PageList, client: User;
+
+        const [err, r] = this.tryGetListClient(lid, auth);
+        if(err){
+            throw err;
+        }
+
+        ({list, client} = r!);
+
+        const hasRights = this.checkListUserRights(list.data, client);
+
+        //if client has rights to access list
+        if (hasRights) {
+            const page = list.data.pages.find(i => i.id == pid);
+            if (!page) {
+                throw errors.noPagesErr;
+            }
+
+            let part = page.data.parts.find(i => i.id == changePart.id);
+            if (!part) {
+                throw errors.noSuchPagePart;
+            }
+
+            part.data = changePart.data;
+
+            if (changePart.swapid) {
+                let swapPart = list.data.pages.find(i => i.id == changePart.swapid);
+                if (swapPart) {
+                    part.id = swapPart.id; //old part now have swapid
+                    swapPart.id = changePart.id; //part to swap with now have old part id
+                }
+            }
+
+            return part;
+        }
+        else {
+            throw errors.notAllowedErr;
+        }
+    }
+
+    @Mutation(() => Part)
+    async insertPagePart(
+        @Arg("auth") auth: UserAuthInput,
+        @Arg("lid", () => ID) lid: number,
+        @Arg("pid", () => ID) pid: number,
+        @Arg("part", () => PartInput) addPart: PartInput
+    ): Promise<Part> {
+        let list: PageList, client: User;
+
+        const [err, r] = this.tryGetListClient(lid, auth);
+        if(err){
+            throw err;
+        }
+
+        ({list, client} = r!);
+
+        const hasRights = this.checkListUserRights(list.data, client);
+
+        //if client has rights to access list
+        if (hasRights) {
+            const page = list.data.pages.find(i => i.id == pid);
+            if (!page) {
+                throw errors.noPagesErr;
+            }
+
+            let parts = page.data.parts;
+            let targetPart = parts.find(i => i.id == addPart.id);
+
+            //if such a part with id already exists
+            if (targetPart) {
+                //shift parts ids by 1 to provide a space
+                parts.forEach(i => {
+                    if(i.id >= addPart.id){
+                        ++i.id;
+                    }
+                })
+                //push part at a provied space
+                parts.push(addPart);
+            }
+            else{
+                //if there is a part with previous id
+                if(parts.find(i => i.id == addPart.id-1)){
+                    //add part
+                    parts.push(addPart);
+                }
+                else{
+                    throw errors.notAppendingId
+                }
+            }
+
+            console.log(parts)
+            return addPart;
+        }
+        else {
+            throw errors.notAllowedErr;
         }
     }
 

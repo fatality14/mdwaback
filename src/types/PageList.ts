@@ -18,7 +18,7 @@ export class PageListData implements HasRights{
 export class PageList implements HasId{
     @Field(() => ID)
     id!: number
-    @Field(type => PageListData)
+    @Field(() => PageListData)
     data!: PageListData
 }
 

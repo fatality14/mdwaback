@@ -1,5 +1,5 @@
 import { ObjectType, Field, InputType, Resolver, Query, Arg, Mutation, ID } from "type-graphql"
-import { User, UserAuthInput, UserData, UserRightsInput } from "../types/User"
+import { User, UserAuthInput, UserChangeInput, UserData, UserRightsInput } from "../types/User"
 import userList from "../data/UserData"
 import UserUtils from "../utility/UserUtils";
 import ERights from "../enums/ERights";
@@ -80,7 +80,7 @@ export class UsersResolver {
 
         //find out if already exists
         if (this.users.find(i => i.data.login == login)) {
-            throw errors.alreadyExists;
+            throw errors.userAlreadyExists;
         }
 
         //change existing user if anon is trying to register
@@ -126,26 +126,33 @@ export class UsersResolver {
         return newUser
     }
 
+    @Mutation(() => User)
+    async updateUser(
+        @Arg("auth") auth: UserAuthInput,
+        @Arg("data") input: UserChangeInput
+    ): Promise<User> {
+        //get client
+        const client = UserUtils.getByAuth(this.users, auth);
+        if (!client) {
+            throw errors.noSuchUser;
+        }
+
+        if (input.login) {
+            client.data.login = input.login;
+        }
+
+        if (input.password) {
+            client.data.password = input.password;
+        }
+
+        if (input.rights) {
+            client.data.rights = input.rights;
+        }
+
+        console.log(UserUtils.getByAuth(this.users, auth))
+
+        return client
+    }
+
     //TODO change/delete requests here
-
-    // @Mutation(() => User)
-    // async updateUser(
-    //     @Arg("uid") uid: number,
-    //     @Arg("input") input: UserInput
-    // ): Promise<User> {
-    //     const user = this.items.find(u => u.id === uid)
-
-    //     if (!user) {
-    //         throw new Error("User not found")
-    //     }
-
-    //     const updatedUser = {
-    //         ...user,
-    //         ...input,
-    //     }
-
-    //     this.items = this.items.map(u => (u.id === uid ? updatedUser : u))
-
-    //     return updatedUser
-    // }
 }

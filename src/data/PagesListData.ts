@@ -16,10 +16,15 @@ let items: PageList[] = [
                                     id: 1, data: {
                                         type: EPagePartType.CODE, content: "test"
                                     }
+                                },
+                                {
+                                    id: 2, data: {
+                                        type: EPagePartType.CODE, content: "test1"
+                                    }
                                 }
                             ],
                             name: "testpagename"
-                        }
+                        },
                     }
                 ],
             rights: ERights.ADMIN,

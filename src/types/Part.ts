@@ -19,9 +19,27 @@ export class Part implements HasId {
 }
 
 @InputType()
-export class PartInput {
+export class PartDataInput {
     @Field(() => EPagePartType)
     type!: EPagePartType
     @Field(type => String)
     content!: string
+}
+
+@InputType()
+export class PartInput {
+    @Field(() => ID)
+    id!: number
+    @Field(type => PartDataInput)
+    data!: PartDataInput
+}
+
+@InputType()
+export class PartChangeInput {
+    @Field(() => ID)
+    id!: number
+    @Field(() => ID, {nullable: true})
+    swapid?: number
+    @Field(type => PartDataInput)
+    data!: PartDataInput
 }

@@ -1,5 +1,5 @@
 import { ObjectType, Field, InputType, ID } from "type-graphql"
-import { Part, PartInput } from "./Part"
+import { Part, PartDataInput } from "./Part"
 
 @ObjectType()
 export class PageData {
@@ -19,8 +19,16 @@ export class Page {
 
 @InputType()
 export class PageInput {
-    @Field(type => [PartInput])
-    parts!: PartInput[]
+    @Field(type => [PartDataInput])
+    parts!: PartDataInput[]
+    @Field()
+    name!: string
+}
+
+@InputType()
+export class PageChangeInput {
+    @Field(type => [PartDataInput])
+    parts!: PartDataInput[]
     @Field()
     name!: string
 }
